@@ -68,6 +68,12 @@ async function startServer() {
   }));
   app.use(express.json());
 
+  // Request logging middleware
+  app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.url} - Origin: ${req.headers.origin}`);
+    next();
+  });
+
   app.get('/api/test', (req, res) => {
     console.log('Backend test request received');
     res.json({ status: 'ok', message: 'Backend is working', timestamp: Date.now() });

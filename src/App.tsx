@@ -22,6 +22,10 @@ export default function App() {
   const t = translations[language];
 
   const getApiBaseUrl = () => {
+    // Check for manual override first
+    const manualUrl = localStorage.getItem('manual_backend_url');
+    if (manualUrl) return manualUrl;
+
     if (typeof window === 'undefined') return process.env.APP_URL || '';
     
     const hostname = window.location.hostname;
@@ -37,6 +41,15 @@ export default function App() {
     }
     
     return '';
+  };
+
+  const setManualUrl = () => {
+    const url = window.prompt("Enter Backend URL (e.g. https://...run.app):", getApiBaseUrl());
+    if (url !== null) {
+      if (url === "") localStorage.removeItem('manual_backend_url');
+      else localStorage.setItem('manual_backend_url', url);
+      window.location.reload();
+    }
   };
 
   const checkBackend = async () => {
@@ -288,7 +301,10 @@ export default function App() {
 
       {/* Backend Status Indicator */}
       <button 
-        onClick={() => checkBackend()}
+        onClick={() => {
+          if (backendStatus === 'offline') setManualUrl();
+          else checkBackend();
+        }}
         disabled={backendStatus === 'checking'}
         className="fixed bottom-4 left-4 z-50 flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/80 dark:bg-black/40 backdrop-blur-md border border-slate-200 dark:border-white/10 text-[10px] font-medium uppercase tracking-wider shadow-sm hover:bg-slate-100 dark:hover:bg-white/5 transition-colors disabled:opacity-50"
       >
