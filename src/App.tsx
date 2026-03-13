@@ -22,28 +22,49 @@ export default function App() {
   const t = translations[language];
 
   const getApiBaseUrl = () => {
+    // If we have an environment variable, use it
     if (process.env.APP_URL) return process.env.APP_URL;
-    // Fallback if running on Vercel but backend is here
-    if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
-      return 'https://ais-dev-o7tzzlto5jvwxedm65ess6-320042479257.asia-southeast1.run.app';
+    
+    // In browser, use current origin as the most reliable base
+    if (typeof window !== 'undefined') {
+      // If running on Vercel but we know the backend is on AI Studio
+      if (window.location.hostname.includes('vercel.app')) {
+        return 'https://ais-dev-o7tzzlto5jvwxedm65ess6-320042479257.asia-southeast1.run.app';
+      }
+      return window.location.origin;
     }
     return '';
   };
 
+  const checkBackend = async () => {
+    setBackendStatus('checking');
+    try {
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/test`, { 
+        cache: 'no-store',
+        signal: AbortSignal.timeout(5000) // 5s timeout
+      });
+      if (res.ok) setBackendStatus('online');
+      else setBackendStatus('offline');
+    } catch (e) {
+      console.error("Backend check failed:", e);
+      setBackendStatus('offline');
+    }
+  };
+
   useEffect(() => {
-    const checkBackend = async () => {
-      try {
-        const baseUrl = getApiBaseUrl();
-        const res = await fetch(`${baseUrl}/api/test`);
-        if (res.ok) setBackendStatus('online');
-        else setBackendStatus('offline');
-      } catch (e) {
-        setBackendStatus('offline');
-      }
-    };
     checkBackend();
     fetchHistory();
-  }, [fetchHistory]);
+    
+    // Periodically check if offline
+    const interval = setInterval(() => {
+      if (backendStatus === 'offline') {
+        checkBackend();
+      }
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, [fetchHistory, backendStatus]);
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -248,12 +269,16 @@ export default function App() {
       <Toaster position="top-center" theme={theme} />
 
       {/* Backend Status Indicator */}
-      <div className="fixed bottom-4 left-4 z-50 flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/80 dark:bg-black/40 backdrop-blur-md border border-slate-200 dark:border-white/10 text-[10px] font-medium uppercase tracking-wider shadow-sm">
+      <button 
+        onClick={() => checkBackend()}
+        disabled={backendStatus === 'checking'}
+        className="fixed bottom-4 left-4 z-50 flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/80 dark:bg-black/40 backdrop-blur-md border border-slate-200 dark:border-white/10 text-[10px] font-medium uppercase tracking-wider shadow-sm hover:bg-slate-100 dark:hover:bg-white/5 transition-colors disabled:opacity-50"
+      >
         <div className={cn(
-          "w-2 h-2 rounded-full animate-pulse",
+          "w-2 h-2 rounded-full",
           backendStatus === 'online' ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : 
           backendStatus === 'offline' ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" : 
-          "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]"
+          "bg-amber-500 animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.5)]"
         )} />
         <span className={cn(
           backendStatus === 'online' ? "text-emerald-600 dark:text-emerald-500" : 
@@ -262,7 +287,8 @@ export default function App() {
         )}>
           Server: {backendStatus}
         </span>
-      </div>
+        {backendStatus === 'checking' && <Loader2 className="w-3 h-3 animate-spin text-amber-500" />}
+      </button>
       
       {/* Animated Background Blobs */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
