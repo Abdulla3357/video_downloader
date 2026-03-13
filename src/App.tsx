@@ -31,9 +31,10 @@ export default function App() {
     const hostname = window.location.hostname;
     const protocol = window.location.protocol;
     
-    // 2. If we are on Vercel, we MUST use the AI Studio backend URL
-    if (hostname.includes('vercel.app')) {
-      return process.env.APP_URL || '';
+    // 2. If we are on Vercel or other external host, we might need a full URL
+    // We avoid using process.env directly in browser code
+    if (hostname.includes('vercel.app') || hostname.includes('netlify.app')) {
+      return ''; // Default to relative, or user can set manual URL
     }
     
     // 3. If we are on the AI Studio preview itself, relative paths are best
@@ -58,9 +59,8 @@ export default function App() {
     }
   };
 
-  const checkBackend = async (isRetry = false) => {
-    if (!isRetry && backendStatus === 'checking') return;
-    
+  const checkBackend = React.useCallback(async (isRetry = false) => {
+    // Remove the early return that was blocking the initial check
     setBackendStatus('checking');
     const baseUrl = getApiBaseUrl();
     const testUrl = baseUrl ? `${baseUrl}/api/test` : '/api/test';
@@ -97,7 +97,7 @@ export default function App() {
       console.error("[Backend Check] Error:", e.name === 'AbortError' ? 'Timeout' : e.message);
       setBackendStatus('offline');
     }
-  };
+  }, [language]); // Added language as dependency since toast uses translations
 
   useEffect(() => {
     checkBackend();
@@ -105,13 +105,11 @@ export default function App() {
     
     // Periodically check if offline
     const interval = setInterval(() => {
-      if (backendStatus === 'offline') {
-        checkBackend(true);
-      }
-    }, 30000);
+      checkBackend();
+    }, 60000); // Check every minute
     
     return () => clearInterval(interval);
-  }, [fetchHistory, backendStatus]);
+  }, [fetchHistory, checkBackend]);
 
   useEffect(() => {
     if (theme === 'dark') {
