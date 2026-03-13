@@ -3,6 +3,10 @@ import { createServer as createViteServer } from 'vite';
 import youtubedl from 'youtube-dl-exec';
 import cors from 'cors';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const downloadProgress = new Map<string, any>();
 
@@ -57,9 +61,19 @@ async function getSoraInfo(url: string) {
   }
 }
 
+process.on('uncaughtException', (err) => {
+  console.error('[Server] Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[Server] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
+
+  console.log(`[Server] Starting in ${process.env.NODE_ENV || 'development'} mode`);
 
   app.use(cors({
     origin: '*',
@@ -67,6 +81,10 @@ async function startServer() {
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With']
   }));
   app.use(express.json());
+
+  app.get('/ping', (req, res) => {
+    res.send('pong');
+  });
 
   // Request logging middleware
   app.use((req, res, next) => {
@@ -76,7 +94,11 @@ async function startServer() {
 
   app.get('/api/test', (req, res) => {
     console.log('Backend test request received');
-    res.json({ status: 'ok', message: 'Backend is working', timestamp: Date.now() });
+    res.json({ status: 'ok', message: 'Backend is working', timestamp: Date.now(), env: process.env.NODE_ENV });
+  });
+
+  app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok' });
   });
 
   app.get('/api/progress', (req, res) => {
@@ -284,16 +306,31 @@ async function startServer() {
 
   // Vite middleware
   if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
+    console.log('[Server] Using Vite middleware (Development)');
+    try {
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+    } catch (err) {
+      console.error('[Server] Failed to create Vite server:', err);
+      // Fallback to static serving if Vite fails
+      const distPath = path.resolve(__dirname, 'dist');
+      app.use(express.static(distPath));
+    }
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    const distPath = path.resolve(__dirname, 'dist');
+    console.log(`[Server] Serving static files from: ${distPath}`);
+    
+    // Serve static files
     app.use(express.static(distPath));
+    
+    // SPA fallback
     app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+      const indexPath = path.join(distPath, 'index.html');
+      console.log(`[Server] SPA Fallback: serving ${indexPath} for ${req.url}`);
+      res.sendFile(indexPath);
     });
   }
 
