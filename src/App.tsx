@@ -37,9 +37,9 @@ export default function App() {
       return ''; // Default to relative, or user can set manual URL
     }
     
-    // 3. If we are on the AI Studio preview itself, relative paths are best
+    // 3. If we are on the AI Studio preview itself, use APP_URL if available, otherwise origin
     if (hostname.includes('run.app')) {
-      return '';
+      return process.env.APP_URL || window.location.origin;
     }
     
     // 4. Local development
@@ -74,11 +74,6 @@ export default function App() {
       const res = await fetch(testUrl, { 
         method: 'GET',
         cache: 'no-store',
-        headers: { 
-          'Accept': 'application/json',
-          'X-Client-Type': 'web-downloader'
-        },
-        mode: 'cors',
         signal: controller.signal
       });
       
@@ -340,6 +335,11 @@ export default function App() {
           "text-amber-600 dark:text-amber-500"
         )}>
           Server: {backendStatus}
+          {backendStatus === 'offline' && (
+            <span className="ml-2 px-2 py-0.5 bg-red-100 dark:bg-red-900/30 rounded text-[9px] hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors">
+              Click to Reconnect
+            </span>
+          )}
         </span>
         {backendStatus === 'checking' && <Loader2 className="w-3 h-3 animate-spin text-amber-500" />}
       </button>
