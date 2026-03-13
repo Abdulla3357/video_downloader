@@ -64,6 +64,10 @@ async function startServer() {
   app.use(cors());
   app.use(express.json());
 
+  app.get('/api/test', (req, res) => {
+    res.json({ status: 'ok', message: 'Backend is working' });
+  });
+
   app.get('/api/progress', (req, res) => {
     const { id } = req.query;
     if (!id || typeof id !== 'string') return res.status(400).json({ error: 'ID required' });
@@ -88,18 +92,27 @@ async function startServer() {
         return res.json(soraInfo);
       }
 
-      const info = await youtubedl(url, {
+      const options: any = {
         dumpSingleJson: true,
         noWarnings: true,
         noCheckCertificates: true,
         noPlaylist: true,
         geoBypass: true,
-        extractorArgs: 'youtube:player_client=android',
         addHeader: [
-          'referer:youtube.com',
           'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         ]
-      } as any);
+      };
+
+      if (url.includes('youtube.com') || url.includes('youtu.be')) {
+        options.extractorArgs = 'youtube:player_client=android';
+        options.addHeader.push('referer:https://www.youtube.com');
+      } else if (url.includes('tiktok.com')) {
+        options.addHeader.push('referer:https://www.tiktok.com/');
+        options.addHeader.push('user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+        options.addHeader.push('accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7');
+      }
+
+      const info = await youtubedl(url, options);
 
       res.json(info);
     } catch (error: any) {
@@ -273,9 +286,6 @@ async function startServer() {
     });
   }
 
-  {
-  "rewrites": [{ "source": "/api/(.*)", "destination": "/api/index.js" }]
-}
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });

@@ -51,7 +51,8 @@ export default function App() {
     addToQueue(newItem);
     toast.success(t.downloadStarted);
 
-    const downloadUrl = `/api/download?url=${encodeURIComponent(url)}&format=${formatCode}&ext=${ext}&id=${id}`;
+    const baseUrl = process.env.APP_URL || '';
+    const downloadUrl = `${baseUrl}/api/download?url=${encodeURIComponent(url)}&format=${formatCode}&ext=${ext}&id=${id}`;
     
     let iframe = document.getElementById('download-iframe') as HTMLIFrameElement;
     if (!iframe) {
@@ -65,7 +66,8 @@ export default function App() {
     let notFoundCount = 0;
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/progress?id=${id}`);
+        const baseUrl = process.env.APP_URL || '';
+        const res = await fetch(`${baseUrl}/api/progress?id=${id}`);
         if (!res.ok) return;
         const data = await res.json();
 
@@ -107,14 +109,24 @@ export default function App() {
     setError('');
     setInfo(null);
 
+    const apiUrl = (process.env.APP_URL || '') + '/api/info';
+
     try {
-      const res = await fetch('/api/info', {
+      const res = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url }),
       });
 
-      const data = await res.json();
+      const contentType = res.headers.get('content-type');
+      let data;
+      
+      if (contentType && contentType.includes('application/json')) {
+        data = await res.json();
+      } else {
+        const text = await res.text();
+        throw new Error(`Server returned non-JSON response: ${text.substring(0, 100)}...`);
+      }
 
       if (!res.ok) {
         throw new Error(data.error || 'Failed to fetch video info');
@@ -122,6 +134,7 @@ export default function App() {
 
       setInfo(data);
     } catch (err: any) {
+      console.error("Fetch Info Error:", err);
       setError(err.message);
       toast.error(t.invalidUrl);
     } finally {
