@@ -32,9 +32,8 @@ export default function App() {
     const protocol = window.location.protocol;
     
     // 2. If we are on Vercel, we MUST use the AI Studio backend URL
-    // Hardcoding the current AI Studio URL for this specific app
     if (hostname.includes('vercel.app')) {
-      return 'https://ais-dev-o7tzzlto5jvwxedm65ess6-320042479257.asia-southeast1.run.app';
+      return process.env.APP_URL || '';
     }
     
     // 3. If we are on the AI Studio preview itself, relative paths are best
@@ -313,7 +312,7 @@ export default function App() {
   const formats = getCategorizedFormats();
 
   const copyShareLink = () => {
-    const shareUrl = 'https://ais-pre-o7tzzlto5jvwxedm65ess6-320042479257.asia-southeast1.run.app';
+    const shareUrl = process.env.APP_URL || window.location.origin;
     navigator.clipboard.writeText(shareUrl);
     toast.success("Share link copied to clipboard!");
   };
