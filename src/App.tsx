@@ -22,16 +22,21 @@ export default function App() {
   const t = translations[language];
 
   const getApiBaseUrl = () => {
-    // In browser, relative paths are most reliable if served from same origin
-    if (typeof window !== 'undefined') {
-      // If we are on Vercel, we MUST use the absolute URL of the AI Studio backend
-      if (window.location.hostname.includes('vercel.app')) {
-        return 'https://ais-dev-o7tzzlto5jvwxedm65ess6-320042479257.asia-southeast1.run.app';
-      }
-      // Otherwise, use relative path
+    if (typeof window === 'undefined') return process.env.APP_URL || '';
+    
+    const hostname = window.location.hostname;
+    
+    // If we are on Vercel, we MUST use the AI Studio backend URL
+    if (hostname.includes('vercel.app')) {
+      return 'https://ais-dev-o7tzzlto5jvwxedm65ess6-320042479257.asia-southeast1.run.app';
+    }
+    
+    // If we are on the AI Studio preview itself, relative paths are fine
+    if (hostname.includes('run.app')) {
       return '';
     }
-    return process.env.APP_URL || '';
+    
+    return '';
   };
 
   const checkBackend = async () => {
