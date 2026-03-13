@@ -65,7 +65,8 @@ async function startServer() {
   app.use(express.json());
 
   app.get('/api/test', (req, res) => {
-    res.json({ status: 'ok', message: 'Backend is working' });
+    console.log('Backend test request received');
+    res.json({ status: 'ok', message: 'Backend is working', timestamp: Date.now() });
   });
 
   app.get('/api/progress', (req, res) => {

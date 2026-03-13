@@ -22,32 +22,45 @@ export default function App() {
   const t = translations[language];
 
   const getApiBaseUrl = () => {
-    // If we have an environment variable, use it
-    if (process.env.APP_URL) return process.env.APP_URL;
-    
-    // In browser, use current origin as the most reliable base
+    // In browser, relative paths are most reliable if served from same origin
     if (typeof window !== 'undefined') {
-      // If running on Vercel but we know the backend is on AI Studio
+      // If we are on Vercel, we MUST use the absolute URL of the AI Studio backend
       if (window.location.hostname.includes('vercel.app')) {
         return 'https://ais-dev-o7tzzlto5jvwxedm65ess6-320042479257.asia-southeast1.run.app';
       }
-      return window.location.origin;
+      // Otherwise, use relative path
+      return '';
     }
-    return '';
+    return process.env.APP_URL || '';
   };
 
   const checkBackend = async () => {
+    if (backendStatus === 'checking' && info) return; // Don't interrupt if already checking and we have info
+    
     setBackendStatus('checking');
     try {
       const baseUrl = getApiBaseUrl();
-      const res = await fetch(`${baseUrl}/api/test`, { 
+      const testUrl = baseUrl ? `${baseUrl}/api/test` : '/api/test';
+      
+      console.log(`Checking backend at: ${testUrl}`);
+      
+      const res = await fetch(testUrl, { 
+        method: 'GET',
         cache: 'no-store',
-        signal: AbortSignal.timeout(5000) // 5s timeout
+        headers: { 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(8000) // Increased to 8s
       });
-      if (res.ok) setBackendStatus('online');
-      else setBackendStatus('offline');
+      
+      if (res.ok) {
+        const data = await res.json();
+        console.log("Backend response:", data);
+        setBackendStatus('online');
+      } else {
+        console.warn(`Backend returned status: ${res.status}`);
+        setBackendStatus('offline');
+      }
     } catch (e) {
-      console.error("Backend check failed:", e);
+      console.error("Backend check failed error:", e);
       setBackendStatus('offline');
     }
   };
