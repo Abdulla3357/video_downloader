@@ -22,22 +22,29 @@ export default function App() {
   const t = translations[language];
 
   const getApiBaseUrl = () => {
-    // Check for manual override first
+    // 1. Check for manual override first (highest priority)
     const manualUrl = localStorage.getItem('manual_backend_url');
     if (manualUrl) return manualUrl;
 
-    if (typeof window === 'undefined') return process.env.APP_URL || '';
+    if (typeof window === 'undefined') return '';
     
     const hostname = window.location.hostname;
+    const protocol = window.location.protocol;
     
-    // If we are on Vercel, we MUST use the AI Studio backend URL
+    // 2. If we are on Vercel, we MUST use the AI Studio backend URL
+    // Hardcoding the current AI Studio URL for this specific app
     if (hostname.includes('vercel.app')) {
       return 'https://ais-dev-o7tzzlto5jvwxedm65ess6-320042479257.asia-southeast1.run.app';
     }
     
-    // If we are on the AI Studio preview itself, relative paths are fine
+    // 3. If we are on the AI Studio preview itself, relative paths are best
     if (hostname.includes('run.app')) {
       return '';
+    }
+    
+    // 4. Local development
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return 'http://localhost:3000';
     }
     
     return '';
@@ -52,33 +59,43 @@ export default function App() {
     }
   };
 
-  const checkBackend = async () => {
-    if (backendStatus === 'checking' && info) return; // Don't interrupt if already checking and we have info
+  const checkBackend = async (isRetry = false) => {
+    if (!isRetry && backendStatus === 'checking') return;
     
     setBackendStatus('checking');
+    const baseUrl = getApiBaseUrl();
+    const testUrl = baseUrl ? `${baseUrl}/api/test` : '/api/test';
+    
+    console.log(`[Backend Check] Attempting to connect to: ${testUrl}`);
+    
     try {
-      const baseUrl = getApiBaseUrl();
-      const testUrl = baseUrl ? `${baseUrl}/api/test` : '/api/test';
-      
-      console.log(`Checking backend at: ${testUrl}`);
-      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
       const res = await fetch(testUrl, { 
         method: 'GET',
         cache: 'no-store',
-        headers: { 'Accept': 'application/json' },
-        signal: AbortSignal.timeout(8000) // Increased to 8s
+        headers: { 
+          'Accept': 'application/json',
+          'X-Client-Type': 'web-downloader'
+        },
+        mode: 'cors',
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
       
       if (res.ok) {
         const data = await res.json();
-        console.log("Backend response:", data);
+        console.log("[Backend Check] Success:", data);
         setBackendStatus('online');
+        if (isRetry) toast.success("Connected to server!");
       } else {
-        console.warn(`Backend returned status: ${res.status}`);
+        console.warn(`[Backend Check] Failed with status: ${res.status}`);
         setBackendStatus('offline');
       }
-    } catch (e) {
-      console.error("Backend check failed error:", e);
+    } catch (e: any) {
+      console.error("[Backend Check] Error:", e.name === 'AbortError' ? 'Timeout' : e.message);
       setBackendStatus('offline');
     }
   };
@@ -90,7 +107,7 @@ export default function App() {
     // Periodically check if offline
     const interval = setInterval(() => {
       if (backendStatus === 'offline') {
-        checkBackend();
+        checkBackend(true);
       }
     }, 30000);
     
@@ -295,6 +312,12 @@ export default function App() {
 
   const formats = getCategorizedFormats();
 
+  const copyShareLink = () => {
+    const shareUrl = 'https://ais-pre-o7tzzlto5jvwxedm65ess6-320042479257.asia-southeast1.run.app';
+    navigator.clipboard.writeText(shareUrl);
+    toast.success("Share link copied to clipboard!");
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0a0a0a] text-slate-900 dark:text-slate-100 font-sans transition-colors duration-300 relative overflow-x-hidden">
       <Toaster position="top-center" theme={theme} />
@@ -303,7 +326,7 @@ export default function App() {
       <button 
         onClick={() => {
           if (backendStatus === 'offline') setManualUrl();
-          else checkBackend();
+          else checkBackend(true);
         }}
         disabled={backendStatus === 'checking'}
         className="fixed bottom-4 left-4 z-50 flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/80 dark:bg-black/40 backdrop-blur-md border border-slate-200 dark:border-white/10 text-[10px] font-medium uppercase tracking-wider shadow-sm hover:bg-slate-100 dark:hover:bg-white/5 transition-colors disabled:opacity-50"
@@ -341,6 +364,13 @@ export default function App() {
             <span className="font-bold text-lg tracking-tight hidden sm:block">UniDownloader</span>
           </div>
           <div className="flex items-center gap-2">
+            <button 
+              onClick={copyShareLink}
+              className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-all shadow-lg shadow-indigo-500/20"
+            >
+              <Globe className="w-4 h-4" />
+              Share App
+            </button>
             <button 
               onClick={toggleLanguage}
               className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-white/10 transition-colors flex items-center gap-2 text-sm font-medium"
