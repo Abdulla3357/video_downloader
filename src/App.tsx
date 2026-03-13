@@ -12,6 +12,8 @@ export default function App() {
   const [info, setInfo] = useState<any>(null);
   const [error, setError] = useState('');
 
+  const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking');
+
   const { 
     language, theme, setLanguage, setTheme, 
     queue, history, addToQueue, updateQueueItem, removeFromQueue, addToHistory, clearHistory, fetchHistory
@@ -19,7 +21,27 @@ export default function App() {
 
   const t = translations[language];
 
+  const getApiBaseUrl = () => {
+    if (process.env.APP_URL) return process.env.APP_URL;
+    // Fallback if running on Vercel but backend is here
+    if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
+      return 'https://ais-dev-o7tzzlto5jvwxedm65ess6-320042479257.asia-southeast1.run.app';
+    }
+    return '';
+  };
+
   useEffect(() => {
+    const checkBackend = async () => {
+      try {
+        const baseUrl = getApiBaseUrl();
+        const res = await fetch(`${baseUrl}/api/test`);
+        if (res.ok) setBackendStatus('online');
+        else setBackendStatus('offline');
+      } catch (e) {
+        setBackendStatus('offline');
+      }
+    };
+    checkBackend();
     fetchHistory();
   }, [fetchHistory]);
 
@@ -51,7 +73,7 @@ export default function App() {
     addToQueue(newItem);
     toast.success(t.downloadStarted);
 
-    const baseUrl = process.env.APP_URL || '';
+    const baseUrl = getApiBaseUrl();
     const downloadUrl = `${baseUrl}/api/download?url=${encodeURIComponent(url)}&format=${formatCode}&ext=${ext}&id=${id}`;
     
     let iframe = document.getElementById('download-iframe') as HTMLIFrameElement;
@@ -66,7 +88,7 @@ export default function App() {
     let notFoundCount = 0;
     const interval = setInterval(async () => {
       try {
-        const baseUrl = process.env.APP_URL || '';
+        const baseUrl = getApiBaseUrl();
         const res = await fetch(`${baseUrl}/api/progress?id=${id}`);
         if (!res.ok) return;
         const data = await res.json();
@@ -109,7 +131,8 @@ export default function App() {
     setError('');
     setInfo(null);
 
-    const apiUrl = (process.env.APP_URL || '') + '/api/info';
+    const baseUrl = getApiBaseUrl();
+    const apiUrl = `${baseUrl}/api/info`;
 
     try {
       const res = await fetch(apiUrl, {
@@ -223,6 +246,23 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0a0a0a] text-slate-900 dark:text-slate-100 font-sans transition-colors duration-300 relative overflow-x-hidden">
       <Toaster position="top-center" theme={theme} />
+
+      {/* Backend Status Indicator */}
+      <div className="fixed bottom-4 left-4 z-50 flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/80 dark:bg-black/40 backdrop-blur-md border border-slate-200 dark:border-white/10 text-[10px] font-medium uppercase tracking-wider shadow-sm">
+        <div className={cn(
+          "w-2 h-2 rounded-full animate-pulse",
+          backendStatus === 'online' ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : 
+          backendStatus === 'offline' ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" : 
+          "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]"
+        )} />
+        <span className={cn(
+          backendStatus === 'online' ? "text-emerald-600 dark:text-emerald-500" : 
+          backendStatus === 'offline' ? "text-red-600 dark:text-red-500" : 
+          "text-amber-600 dark:text-amber-500"
+        )}>
+          Server: {backendStatus}
+        </span>
+      </div>
       
       {/* Animated Background Blobs */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
