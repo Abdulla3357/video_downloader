@@ -28,15 +28,12 @@ export default function App() {
 
     if (typeof window === 'undefined') return '';
     
-    const hostname = window.location.hostname;
-    const protocol = window.location.protocol;
-    
-    // 2. If we are on Vercel or other external host, we might need a full URL
-    // We avoid using process.env directly in browser code
-    if (hostname.includes('vercel.app') || hostname.includes('netlify.app')) {
-      // Use the shared app URL from AI Studio as the backend
-      return 'https://ais-pre-o7tzzlto5jvwxedm65ess6-320042479257.asia-southeast1.run.app';
+    // 2. Use environment variable if provided
+    if (import.meta.env.VITE_BACKEND_URL) {
+      return import.meta.env.VITE_BACKEND_URL;
     }
+    
+    const hostname = window.location.hostname;
     
     // 3. If we are on the AI Studio preview itself, relative paths are best
     if (hostname.includes('run.app')) {
