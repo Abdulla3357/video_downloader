@@ -34,7 +34,8 @@ export default function App() {
     // 2. If we are on Vercel or other external host, we might need a full URL
     // We avoid using process.env directly in browser code
     if (hostname.includes('vercel.app') || hostname.includes('netlify.app')) {
-      return ''; // Default to relative, or user can set manual URL
+      // Use the shared app URL from AI Studio as the backend
+      return 'https://ais-pre-o7tzzlto5jvwxedm65ess6-320042479257.asia-southeast1.run.app';
     }
     
     // 3. If we are on the AI Studio preview itself, relative paths are best
