@@ -37,9 +37,9 @@ export default function App() {
       return ''; // Default to relative, or user can set manual URL
     }
     
-    // 3. If we are on the AI Studio preview itself, use APP_URL if available, otherwise origin
+    // 3. If we are on the AI Studio preview itself, relative paths are best
     if (hostname.includes('run.app')) {
-      return process.env.APP_URL || window.location.origin;
+      return '';
     }
     
     // 4. Local development
@@ -96,6 +96,12 @@ export default function App() {
 
   useEffect(() => {
     checkBackend();
+    
+    // Initial retry after 3 seconds in case server is still starting
+    const initialRetry = setTimeout(() => {
+      checkBackend();
+    }, 3000);
+
     fetchHistory();
     
     // Periodically check if offline
@@ -103,7 +109,10 @@ export default function App() {
       checkBackend();
     }, 60000); // Check every minute
     
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(initialRetry);
+      clearInterval(interval);
+    };
   }, [fetchHistory, checkBackend]);
 
   useEffect(() => {
